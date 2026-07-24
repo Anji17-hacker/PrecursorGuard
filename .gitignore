@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Environment
+.env
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Logs
+*.log
+
+# Data
+data/raw/*.evtx
+data/raw/*.etl
+
+# Reports
+reports/output/
+
+# OS
+.DS_Store
+Thumbs.db
