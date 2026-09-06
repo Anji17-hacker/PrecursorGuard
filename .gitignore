@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+reports/*.pdf
+reports/alerts.csv
+reports/live_alerts.csv
+ml/models/*.joblib
+ml/models/metrics.json
+lab/*.evtx
+.DS_Store

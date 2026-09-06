@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PrecursorGuard — Precursor-Stage Detection Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">PG</div>
+      <div class="brand-text">
+        <div class="brand-name">PrecursorGuard</div>
+        <div class="brand-sub">precursor-stage detection</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="overview">
+        <span class="nav-dot"></span> Overview
+      </button>
+      <button class="nav-item" data-view="alerts">
+        <span class="nav-dot"></span> Alerts
+      </button>
+      <button class="nav-item" data-view="mitre">
+        <span class="nav-dot"></span> MITRE ATT&amp;CK Map
+      </button>
+      <button class="nav-item" data-view="compare">
+        <span class="nav-dot"></span> Detector Comparison
+      </button>
+      <a class="nav-item" href="/neon" style="text-decoration:none;">
+        <span class="nav-dot"></span> Live Console (neon)
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="foot-label">Detection stage</div>
+      <div class="foot-value">Pre-encryption</div>
+      <div class="foot-line"></div>
+      <div class="foot-caption">Catches BYOVD → EDR-kill →<br>recovery-disable, before<br>ransomware encryption starts.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 id="view-title">Overview</h1>
+        <p id="view-subtitle" class="muted">Hybrid rule + behavioral + ML detection, baseline evaluation set</p>
+      </div>
+      <div class="topbar-controls">
+        <div class="pillgroup" id="mode-group">
+          <button class="pill active" data-mode="hybrid">Hybrid</button>
+          <button class="pill" data-mode="rule_only">Rule-only</button>
+          <button class="pill" data-mode="ml_only">ML-only</button>
+        </div>
+        <div class="pillgroup" id="dataset-group">
+          <button class="pill active" data-dataset="baseline">Baseline set</button>
+          <button class="pill" data-dataset="challenge">Unseen challenge set</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section id="view-overview" class="view active">
+
+      <div class="chain-card">
+        <div class="chain-title">Precursor attack chain</div>
+        <div class="chain-flow" id="chain-flow">
+          <div class="chain-step" data-key="rule_match">
+            <div class="chain-icon">01</div>
+            <div class="chain-label">Driver load</div>
+            <div class="chain-sub">LOLDrivers match</div>
+            <div class="chain-count" id="cnt-driver">–</div>
+          </div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-step" data-key="privilege_escalation_flag">
+            <div class="chain-icon">02</div>
+            <div class="chain-label">Privilege escalation</div>
+            <div class="chain-sub">SYSTEM integrity</div>
+            <div class="chain-count" id="cnt-priv">–</div>
+          </div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-step" data-key="security_process_killed">
+            <div class="chain-icon">03</div>
+            <div class="chain-label">EDR / security kill</div>
+            <div class="chain-sub">watched process terminated</div>
+            <div class="chain-count" id="cnt-kill">–</div>
+          </div>
+          <div class="chain-arrow">→</div>
+          <div class="chain-step" data-key="precursor_command_count">
+            <div class="chain-icon">04</div>
+            <div class="chain-label">Recovery disabled</div>
+            <div class="chain-sub">vssadmin / bcdedit / net stop</div>
+            <div class="chain-count" id="cnt-precursor">–</div>
+          </div>
+          <div class="chain-arrow accent">→</div>
+          <div class="chain-step alert-step">
+            <div class="chain-icon">⚠</div>
+            <div class="chain-label">Alert raised</div>
+            <div class="chain-sub">before encryption begins</div>
+            <div class="chain-count" id="cnt-alert">–</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card" style="--accent-color: var(--c-slate)">
+          <div class="kpi-label">Sessions scored</div>
+          <div class="kpi-value" id="kpi-total">–</div>
+          <div class="kpi-foot">synthetic evaluation sessions</div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--c-amber)">
+          <div class="kpi-label">Alerts raised</div>
+          <div class="kpi-value" id="kpi-alerts">–</div>
+          <div class="kpi-foot"><span id="kpi-tp">–</span> true positives</div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--c-teal)">
+          <div class="kpi-label">Precision</div>
+          <div class="kpi-value" id="kpi-precision">–</div>
+          <div class="kpi-foot"><span id="kpi-fp">–</span> false positives</div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--c-teal)">
+          <div class="kpi-label">Recall</div>
+          <div class="kpi-value" id="kpi-recall">–</div>
+          <div class="kpi-foot"><span id="kpi-fn">–</span> missed attacks</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title">Risk score distribution</div>
+          <canvas id="chart-risk-hist" height="180"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Alerts by scenario</div>
+          <div id="scenario-list" class="scenario-list"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= ALERTS ================= -->
+    <section id="view-alerts" class="view">
+      <div class="alerts-layout">
+        <div class="panel alerts-panel">
+          <div class="panel-title-row">
+            <div class="panel-title">Session alerts</div>
+            <label class="toggle">
+              <input type="checkbox" id="only-alerts-toggle" checked>
+              <span>Alerts only</span>
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table class="alerts-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Session</th>
+                  <th>Scenario</th>
+                  <th>Risk</th>
+                  <th>Reason</th>
+                  <th>Ground truth</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel detail-panel" id="detail-panel">
+          <div class="detail-empty" id="detail-empty">
+            <div class="detail-empty-icon">◎</div>
+            <div>Select a session to view its full investigation —<br>timeline, matched signals, MITRE mapping, and PDF report.</div>
+          </div>
+          <div class="detail-content hidden" id="detail-content">
+            <div class="detail-head">
+              <div>
+                <div class="detail-session-id" id="d-session-id"></div>
+                <div class="detail-scenario" id="d-scenario"></div>
+              </div>
+              <div class="detail-risk" id="d-risk"></div>
+            </div>
+
+            <div class="detail-subscores" id="d-subscores"></div>
+
+            <div class="detail-section">
+              <div class="detail-section-title">Event timeline</div>
+              <div class="timeline" id="d-timeline"></div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-title">MITRE ATT&amp;CK techniques matched</div>
+              <div class="mitre-tags" id="d-mitre"></div>
+            </div>
+
+            <button class="btn-primary" id="d-download-report">Download forensic PDF report</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MITRE ================= -->
+    <section id="view-mitre" class="view">
+      <div class="panel">
+        <div class="panel-title">MITRE ATT&amp;CK coverage — how many alerted sessions matched each technique</div>
+        <div class="mitre-grid" id="mitre-grid"></div>
+      </div>
+    </section>
+
+    <!-- ================= COMPARE ================= -->
+    <section id="view-compare" class="view">
+      <div class="panel">
+        <div class="panel-title">Why hybrid detection — precision / recall across all three detectors</div>
+        <p class="muted small">Rule-only depends entirely on a LOLDrivers hash match, so it structurally cannot catch an attacker using a driver that isn't in the reference list yet. The chart below is measured directly from <code>reports/*.csv</code>, not asserted.</p>
+        <canvas id="chart-compare" height="110"></canvas>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

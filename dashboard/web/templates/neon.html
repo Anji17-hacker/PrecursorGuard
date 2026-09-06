@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrecursorGuard — Live Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f0c29; color: #ffffff; font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: linear-gradient(145deg, #1e1b4b, #17153a);
+            border: 1px solid #312e81;
+            border-radius: 1.25rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .neon-text { color: #a78bfa; text-shadow: 0 0 10px rgba(167, 139, 250, 0.5); }
+        .neon-red { color: #f87171; text-shadow: 0 0 10px rgba(248, 113, 113, 0.5); }
+        .sidebar-item:hover { background-color: #312e81; border-radius: 0.5rem; transition: 0.3s; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="w-64 glass-card m-4 p-5 flex flex-col hidden md:flex">
+        <div class="flex items-center gap-3 mb-10">
+            <i class="fa-solid fa-shield-halved text-3xl text-purple-500"></i>
+            <h1 class="text-xl font-bold tracking-wider">Precursor<span class="text-purple-500">Guard</span></h1>
+        </div>
+        <nav class="flex flex-col gap-2">
+            <a href="/neon" class="sidebar-item p-3 flex items-center gap-3 bg-indigo-900 rounded-lg"><i class="fa-solid fa-border-all"></i> Live Console</a>
+            <a href="/" class="sidebar-item p-3 flex items-center gap-3 text-gray-400"><i class="fa-solid fa-magnifying-glass"></i> Investigation Console</a>
+        </nav>
+        <div class="mt-auto text-xs text-gray-500 px-2">
+            Data source: reports/live_alerts.csv +<br>reports/&lt;mode&gt;.csv
+        </div>
+    </aside>
+
+    <main class="flex-1 p-4 overflow-y-auto">
+        <header class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-semibold">Security Overview</h2>
+            <div class="flex gap-4 items-center">
+                <select id="modeSelect" class="bg-gray-800 rounded-full px-4 py-2 border border-gray-700 text-sm outline-none">
+                    <option value="hybrid">hybrid</option>
+                    <option value="rule_only">rule_only</option>
+                    <option value="ml_only">ml_only</option>
+                </select>
+                <button id="agentStatus" class="bg-purple-600 px-6 py-2 rounded-full font-semibold transition shadow-[0_0_15px_rgba(147,51,234,0.5)]">Agent: checking…</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="glass-card p-6 flex flex-col justify-between relative overflow-hidden lg:col-span-1">
+                <div>
+                    <p class="text-gray-400 text-sm mb-1">System Status: <span id="statusLabel" class="text-green-400">—</span></p>
+                    <h3 class="text-3xl font-bold mb-2">Monitoring<br>Active!</h3>
+                    <p class="text-xs text-gray-400 mt-4">PrecursorGuard is analyzing Sysmon-derived session behavior.</p>
+                </div>
+                <i class="fa-solid fa-shield-virus absolute right-[-20px] bottom-[-20px] text-9xl opacity-20 text-purple-400"></i>
+            </div>
+
+            <div class="glass-card p-6 lg:col-span-1 flex flex-col justify-center items-center">
+                <i class="fa-solid fa-bug text-5xl text-purple-400 mb-4 drop-shadow-[0_0_10px_rgba(167,139,250,0.8)]"></i>
+                <h4 class="text-gray-400 text-sm">Precursors Detected</h4>
+                <h2 class="text-4xl font-bold mt-1"><span id="alertCount">—</span><span class="text-lg text-gray-400 ml-1">/ <span id="totalCount">—</span> sessions</span></h2>
+            </div>
+
+            <div class="glass-card p-6 lg:col-span-1 flex flex-col justify-center">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-gray-400 text-sm">Latest Live Risk Score</h4>
+                    <span id="riskBadge" class="text-green-400 text-xs bg-green-900/50 px-2 py-1 rounded">—</span>
+                </div>
+                <h2 id="riskValue" class="text-5xl font-bold neon-text mb-2">—</h2>
+                <div class="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+                    <div id="riskBar" class="bg-purple-500 h-1.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-3">Alert threshold: 0.6 (config/settings.py)</p>
+            </div>
+
+            <div class="glass-card p-6 lg:col-span-2">
+                <h4 class="text-gray-300 font-semibold mb-4">Live Threat Risk — reports/live_alerts.csv</h4>
+                <div class="h-64">
+                    <canvas id="riskChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 lg:col-span-1">
+                <h4 class="text-gray-300 font-semibold mb-4">Attack Vectors (MITRE), % of alerted sessions</h4>
+                <div id="mitreBars" class="space-y-4"></div>
+            </div>
+
+            <div class="glass-card p-6 lg:col-span-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-gray-300 font-semibold">Batch Risk-Score Distribution — reports/&lt;mode&gt;.csv</h4>
+                    <span id="binsNote" class="text-xs text-gray-400"></span>
+                </div>
+                <div class="h-48">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const modeSelect = document.getElementById('modeSelect');
+        let riskChart, activityChart;
+
+        function fmtPct(x) { return x === null || x === undefined ? '—' : (x * 100).toFixed(1) + '%'; }
+
+        async function loadLive() {
+            const res = await fetch('/api/live');
+            const data = await res.json();
+            const rows = data.rows || [];
+            const labels = rows.map(r => (r.timestamp || '').slice(11, 19));
+            const scores = rows.map(r => r.risk_score);
+
+            if (!riskChart) {
+                const ctx = document.getElementById('riskChart').getContext('2d');
+                riskChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets: [{
+                        label: 'Risk Score', data: scores,
+                        borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)',
+                        borderWidth: 2, tension: 0.3, fill: true,
+                        pointBackgroundColor: rows.map(r => r.final_alert ? '#f87171' : '#a78bfa'),
+                        pointRadius: rows.map(r => r.final_alert ? 4 : 2)
+                    }]},
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' }, max: 1.0, min: 0 },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af', maxTicksLimit: 10 } }
+                        }
+                    }
+                });
+            } else {
+                riskChart.data.labels = labels;
+                riskChart.data.datasets[0].data = scores;
+                riskChart.data.datasets[0].pointBackgroundColor = rows.map(r => r.final_alert ? '#f87171' : '#a78bfa');
+                riskChart.update();
+            }
+
+            const latest = rows[rows.length - 1];
+            document.getElementById('agentStatus').textContent =
+                rows.length ? 'Agent: LOGGED DATA' : 'Agent: NO DATA YET';
+            if (latest) {
+                document.getElementById('riskValue').textContent = latest.risk_score.toFixed(2);
+                document.getElementById('riskBar').style.width = Math.min(100, latest.risk_score * 100) + '%';
+                const alerting = latest.final_alert;
+                document.getElementById('riskBadge').textContent = alerting ? 'ALERT' : 'Normal';
+                document.getElementById('riskBadge').className = alerting
+                    ? 'text-red-400 text-xs bg-red-900/50 px-2 py-1 rounded'
+                    : 'text-green-400 text-xs bg-green-900/50 px-2 py-1 rounded';
+                document.getElementById('statusLabel').textContent = alerting ? 'Alert' : 'Secure';
+                document.getElementById('statusLabel').className = alerting ? 'text-red-400' : 'text-green-400';
+            } else {
+                document.getElementById('riskValue').textContent = 'n/a';
+                document.getElementById('riskBadge').textContent = data.note || 'no data';
+            }
+        }
+
+        async function loadSummary() {
+            const mode = modeSelect.value;
+            const res = await fetch(`/api/summary?mode=${mode}&dataset=baseline`);
+            const s = await res.json();
+            if (s.error) {
+                document.getElementById('alertCount').textContent = '0';
+                document.getElementById('totalCount').textContent = '0';
+                return;
+            }
+            document.getElementById('alertCount').textContent = s.alerts_raised;
+            document.getElementById('totalCount').textContent = s.total_sessions;
+
+            const binLabels = ['0-.2', '.2-.4', '.4-.6', '.6-.8', '.8-1.0'];
+            if (!activityChart) {
+                const ctx = document.getElementById('activityChart').getContext('2d');
+                activityChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: binLabels, datasets: [{ data: s.risk_histogram, backgroundColor: '#818cf8', borderRadius: 5 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            x: { ticks: { color: '#9ca3af' }, grid: { display: false } }
+                        }
+                    }
+                });
+            } else {
+                activityChart.data.datasets[0].data = s.risk_histogram;
+                activityChart.update();
+            }
+            document.getElementById('binsNote').textContent =
+                `precision ${fmtPct(s.precision)} · recall ${fmtPct(s.recall)} · f1 ${fmtPct(s.f1)}`;
+        }
+
+        async function loadMitre() {
+            const mode = modeSelect.value;
+            const res = await fetch(`/api/mitre_summary?mode=${mode}&dataset=baseline`);
+            const rows = await res.json();
+            const container = document.getElementById('mitreBars');
+            container.innerHTML = '';
+            const colors = ['#fb923c', '#f87171', '#a78bfa', '#818cf8'];
+            rows.forEach((r, i) => {
+                const color = colors[i % colors.length];
+                container.insertAdjacentHTML('beforeend', `
+                    <div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-400">${r.technique_name} (${r.technique_id})</span>
+                        <span class="text-sm font-bold" style="color:${color}">${r.pct}%</span>
+                      </div>
+                      <div class="w-full bg-gray-700 rounded-full h-1 mt-1">
+                        <div class="h-1 rounded-full" style="width:${r.pct}%; background:${color};"></div>
+                      </div>
+                    </div>`);
+            });
+            if (!rows.length) {
+                container.innerHTML = '<p class="text-xs text-gray-500">No alerted sessions yet for this mode — run detection/pipeline.py.</p>';
+            }
+        }
+
+        function refreshAll() {
+            loadLive();
+            loadSummary();
+            loadMitre();
+        }
+
+        modeSelect.addEventListener('change', () => { loadSummary(); loadMitre(); });
+        refreshAll();
+        setInterval(loadLive, 5000); // live risk chart polls every 5s, matching the agent's poll interval
+    </script>
+</body>
+</html>

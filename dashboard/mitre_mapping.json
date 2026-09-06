@@ -1,0 +1,18 @@
+{
+  "rule_match": {
+    "technique_id": "T1068",
+    "technique_name": "Exploitation for Privilege Escalation (via vulnerable driver / BYOVD)"
+  },
+  "privilege_escalation_flag": {
+    "technique_id": "T1543.003",
+    "technique_name": "Create or Modify System Process: Windows Service (kernel-level access via loaded driver)"
+  },
+  "security_process_killed": {
+    "technique_id": "T1562.001",
+    "technique_name": "Impair Defenses: Disable or Modify Tools"
+  },
+  "precursor_command_count": {
+    "technique_id": "T1490",
+    "technique_name": "Inhibit System Recovery"
+  }
+}
